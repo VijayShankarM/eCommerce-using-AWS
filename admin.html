@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Manage Products</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s ease;
+        }
+        h1 {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            transition: background-color 0.3s ease;
+        }
+        form {
+            background: white;
+            padding: 20px;
+            margin: 20px auto;
+            width: 300px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease;
+        }
+        form:hover {
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+        input, button, textarea {
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus, button:focus, textarea:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            background-color: #28a745; /* Green for Add Product */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+            transform: scale(1.05);
+        }
+        button:active {
+            background-color: #1e7e34;
+            transform: scale(1);
+        }
+        #message {
+            display: none;
+            padding: 10px;
+            margin: 10px auto;
+            width: 300px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        #message.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        #message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        table {
+            width: 80%; /* Increase the width of the table */
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        .action-button {
+            padding: 5px 10px; /* Reduced size */
+            font-size: 14px; /* Reduced size */
+        }
+        .action-button.edit {
+            background-color: #007bff; /* Blue for Edit */
+        }
+        .action-button.edit:hover {
+            background-color: #0056b3;
+        }
+        .action-button.delete {
+            background-color: #ff0000; /* Red for Delete */
+        }
+        .action-button.delete:hover {
+            background-color: #cc0000;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Admin Panel - Manage Products</h1>
+
+    <form id="addProductForm">
+        <h2>Add Product</h2>
+        <input type="text" id="productName" placeholder="Product Name" required>
+        <input type="number" id="productPrice" placeholder="Price" required>
+        <input type="number" id="productStock" placeholder="Stock Quantity" required>
+        <input type="text" id="productImageUrl" placeholder="Image URL" required>
+        <button type="submit">Add Product</button>
+    </form>
+
+    <div id="message"></div>
+
+    <h2>Products</h2>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Product ID</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Image</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="productTableBody"></tbody>
+    </table>
+
+    <!-- Edit Product Modal -->
+    <div id="editModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid black;">
+        <h3>Edit Product</h3>
+        <input type="hidden" id="editProductId"> <!-- Hidden field for Product ID -->
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <label style="width: 100px;">Name:</label>
+            <input type="text" id="editName" style="flex: 1;">
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <label style="width: 100px;">Price:</label>
+            <input type="number" id="editPrice" style="flex: 1;">
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <label style="width: 100px;">Stock:</label>
+            <input type="number" id="editStock" style="flex: 1;">
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <label style="width: 100px;">Image URL:</label>
+            <input type="text" id="editImageUrl" style="flex: 1;">
+        </div>
+        <img id="editPreviewImage" src="" alt="Product Image" style="width: 150px; height: auto; display: none; margin-bottom: 10px;">
+        <button onclick="updateProduct()">Save</button>
+        <button onclick="closeEditModal()">Cancel</button>
+    </div>
+
+    <script>
+        const apiUrl = "https://bb9d35alf6.execute-api.us-east-1.amazonaws.com/prod/products";
+
+        async function fetchProducts() {
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("Failed to fetch products");
+
+                const products = await response.json();
+                const productTableBody = document.getElementById("productTableBody");
+                productTableBody.innerHTML = ""; // Clear previous entries
+
+                if (products.length === 0) {
+                    productTableBody.innerHTML = "<tr><td colspan='6'>No products available.</td></tr>";
+                    return;
+                }
+
+                products.forEach(product => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${product.productId}</td>
+                        <td>${product.name}</td>
+                        <td>₹${product.price}</td>
+                        <td>${product.stock}</td>
+                        <td><img src="${product.imageUrl}" alt="Product Image" style="width: 50px; height: auto;"></td>
+                        <td>
+                            <button class="action-button edit" onclick="openEditModal('${product.productId}', '${product.name}', ${product.price}, ${product.stock}, '${product.imageUrl}')">Edit</button>
+                            <button class="action-button delete" onclick="deleteProduct('${product.productId}')">Delete</button>
+                        </td>
+                    `;
+                    productTableBody.appendChild(row);
+                });
+            } catch (error) {
+                document.getElementById("productTableBody").innerHTML = "<tr><td colspan='6' class='error'>Error loading products.</td></tr>";
+                console.error("Error fetching products:", error);
+            }
+        }
+
+        async function deleteProduct(productId) {
+            try {
+                const response = await fetch(`${apiUrl}/${productId}`, { method: "DELETE" });
+                if (!response.ok) throw new Error("Failed to delete product");
+                showMessage("Product deleted successfully!", "success");
+                fetchProducts();
+            } catch (error) {
+                console.error("Error deleting product:", error);
+                showMessage("Error deleting product: " + error.message, "error");
+            }
+        }
+
+        document.getElementById("addProductForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const productData = {
+                productId: Date.now().toString(),
+                name: document.getElementById("productName").value,
+                price: parseFloat(document.getElementById("productPrice").value),
+                stock: parseInt(document.getElementById("productStock").value),
+                imageUrl: document.getElementById("productImageUrl").value
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(productData)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to add product");
+                }
+
+                showMessage("Product added successfully!", "success");
+                fetchProducts();
+            } catch (error) {
+                console.error("Error adding product:", error);
+                showMessage("Error adding product: " + error.message, "error");
+            }
+        });
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById("message");
+            messageDiv.textContent = message;
+            messageDiv.className = type;
+            messageDiv.style.display = "block";
+            setTimeout(() => {
+                messageDiv.style.display = "none";
+            }, 3000);
+        }
+
+        function openEditModal(productId, name, price, stock, imageUrl) {
+            document.getElementById("editProductId").value = productId; // Set the product ID
+            document.getElementById("editName").value = name;
+            document.getElementById("editPrice").value = price;
+            document.getElementById("editStock").value = stock;
+            document.getElementById("editImageUrl").value = imageUrl;
+
+            // Show image preview
+            const previewImage = document.getElementById("editPreviewImage");
+            if (imageUrl) {
+                previewImage.src = imageUrl;
+                previewImage.style.display = "block";
+            } else {
+                previewImage.style.display = "none";
+            }
+
+            // Show modal
+            document.getElementById("editModal").style.display = "block";
+        }
+
+        function closeEditModal() {
+            document.getElementById("editModal").style.display = "none";
+        }
+
+        async function updateProduct() {
+            const updatedProduct = {
+                productId: document.getElementById("editProductId").value, // Use the hidden product ID field
+                name: document.getElementById("editName").value,
+                price: parseFloat(document.getElementById("editPrice").value),
+                stock: parseInt(document.getElementById("editStock").value),
+                imageUrl: document.getElementById("editImageUrl").value || "" // Ensure a valid image URL
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updatedProduct)
+                });
+
+                if (!response.ok) throw new Error("Failed to update product");
+
+                showMessage("Product updated successfully!", "success");
+                closeEditModal(); // Close the modal after saving
+                fetchProducts();
+            } catch (error) {
+                console.error("Error updating product:", error);
+                showMessage("Error updating product: " + error.message, "error");
+            }
+        }
+
+        fetchProducts();
+    </script>
+
+</body>
+</html>
