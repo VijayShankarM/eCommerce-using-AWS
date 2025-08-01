@@ -9,7 +9,7 @@ export const handler = async (event) => {
         console.log("🟢 Getting all orders");
 
         const params = {
-            TableName: "Orders"
+            TableName: "<YOUR_TABLE_NAME>" // 🔁 Only name changed
         };
 
         const result = await dynamo.send(new ScanCommand(params));
