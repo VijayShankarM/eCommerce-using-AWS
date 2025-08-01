@@ -6,7 +6,7 @@ const dynamoDB = DynamoDBDocumentClient.from(client);
 
 export async function handler(event) {
     const params = {
-        TableName: "Products"
+        TableName: "<YOUR_TABLE_NAME>" // 🔁 Only this name was changed
     };
 
     try {
