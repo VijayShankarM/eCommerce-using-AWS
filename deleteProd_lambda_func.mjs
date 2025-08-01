@@ -21,7 +21,7 @@ export const handler = async (event) => {
         }
 
         const params = {
-            TableName: "Products",
+            TableName: "<YOUR_TABLE_NAME>", // 🔁 Changed only this
             Key: { productId }
         };
 
