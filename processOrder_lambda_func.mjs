@@ -2,15 +2,17 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
-const dynamo = DynamoDBDocumentClient.from(client);
+const dbClient = DynamoDBDocumentClient.from(client);
 
 export const handler = async (event) => {
     try {
         console.log("🟡 Received event:", JSON.stringify(event, null, 2));
 
-        const body = event.body ? JSON.parse(event.body) : {};
+        const requestBody = event.body ? JSON.parse(event.body) : {};
 
-        if (!body.name || !body.address || !body.phone || !body.email || !body.cartItems) {
+        const { name, address, phone, email, cartItems } = requestBody;
+
+        if (!name || !address || !phone || !email || !cartItems) {
             return {
                 statusCode: 400,
                 headers: { "Access-Control-Allow-Origin": "*" },
@@ -18,11 +20,11 @@ export const handler = async (event) => {
             };
         }
 
-        const cartItems = Array.isArray(body.cartItems)
-            ? body.cartItems
-            : (typeof body.cartItems === "string" ? JSON.parse(body.cartItems) : []);
+        const items = Array.isArray(cartItems)
+            ? cartItems
+            : (typeof cartItems === "string" ? JSON.parse(cartItems) : []);
 
-        if (cartItems.length === 0) {
+        if (items.length === 0) {
             return {
                 statusCode: 400,
                 headers: { "Access-Control-Allow-Origin": "*" },
@@ -30,16 +32,16 @@ export const handler = async (event) => {
             };
         }
 
-        // Step 1: Check Stock for Each Product
-        for (const item of cartItems) {
-            const getStockParams = {
-                TableName: "Products",
+        // ✅ Step 1: Verify stock
+        for (const item of items) {
+            const getProductParams = {
+                TableName: "<PRODUCTS_TABLE>",
                 Key: { productId: item.productId }
             };
 
-            const productData = await dynamo.send(new GetCommand(getStockParams));
+            const productResult = await dbClient.send(new GetCommand(getProductParams));
 
-            if (!productData.Item || !productData.Item.stock) {
+            if (!productResult.Item || productResult.Item.stock === undefined) {
                 return {
                     statusCode: 404,
                     headers: { "Access-Control-Allow-Origin": "*" },
@@ -47,10 +49,10 @@ export const handler = async (event) => {
                 };
             }
 
-            const currentStock = parseInt(productData.Item.stock);
-            const orderQuantity = parseInt(item.quantity);
+            const availableStock = parseInt(productResult.Item.stock);
+            const requiredQty = parseInt(item.quantity);
 
-            if (orderQuantity > currentStock) {
+            if (requiredQty > availableStock) {
                 return {
                     statusCode: 400,
                     headers: { "Access-Control-Allow-Origin": "*" },
@@ -59,37 +61,35 @@ export const handler = async (event) => {
             }
         }
 
-        // Step 2: Place Order & Reduce Stock
+        // ✅ Step 2: Store order & update stock
         const orderId = Date.now().toString();
 
-        // Save Order in "Orders" Table
         const orderParams = {
-            TableName: "Orders",
+            TableName: "<ORDERS_TABLE>",
             Item: {
                 orderId,
-                name: body.name,
-                address: body.address,
-                phone: body.phone,
-                email: body.email,
-                cartItems
+                name,
+                address,
+                phone,
+                email,
+                cartItems: items
             }
         };
 
-        await dynamo.send(new PutCommand(orderParams));
+        await dbClient.send(new PutCommand(orderParams));
 
-        // Reduce Stock for Each Product
-        for (const item of cartItems) {
+        for (const item of items) {
             const updateStockParams = {
-                TableName: "Products",
+                TableName: "<PRODUCTS_TABLE>",
                 Key: { productId: item.productId },
-                UpdateExpression: "SET stock = stock - :orderQuantity",
+                UpdateExpression: "SET stock = stock - :qty",
                 ExpressionAttributeValues: {
-                    ":orderQuantity": item.quantity
+                    ":qty": item.quantity
                 },
                 ReturnValues: "UPDATED_NEW"
             };
 
-            await dynamo.send(new UpdateCommand(updateStockParams));
+            await dbClient.send(new UpdateCommand(updateStockParams));
         }
 
         return {
