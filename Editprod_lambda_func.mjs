@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { UpdateItemCommand } from "@aws-sdk/client-dynamodb"; // ✅ Correct import
+import { UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 
 const dynamo = new DynamoDBClient({ region: "us-east-1" });
 
@@ -42,21 +42,21 @@ export const handler = async (event) => {
         }
 
         const params = {
-            TableName: "Products",
-            Key: { productId: { S: body.productId } }, // ✅ Ensure key format
+            TableName: "<YOUR_TABLE_NAME>", // 🔁 Replace with your actual DynamoDB table name
+            Key: { productId: { S: body.productId } },
             UpdateExpression: "SET #n = :n, price = :p, stock = :s, imageUrl = :img",
             ExpressionAttributeNames: { "#n": "name" },
             ExpressionAttributeValues: {
                 ":n": { S: body.name },
-                ":p": { N: body.price.toString() }, // ✅ Convert to string
-                ":s": { N: body.stock.toString() }, // ✅ Convert to string
-                ":img": { S: body.imageUrl }
+                ":p": { N: body.price.toString() },
+                ":s": { N: body.stock.toString() },
+                ":img": { S: body.imageUrl } // You can also use "<YOUR_BUCKET_NAME>/path/to/image" in frontend
             },
             ReturnValues: "UPDATED_NEW"
         };
 
         console.log("🟡 Sending update command to DynamoDB:", params);
-        const response = await dynamo.send(new UpdateItemCommand(params)); // ✅ Use UpdateItemCommand
+        const response = await dynamo.send(new UpdateItemCommand(params));
         console.log("✅ Update response:", response);
 
         return {
