@@ -6,9 +6,8 @@ const dynamo = DynamoDBDocumentClient.from(client);
 
 export const handler = async (event) => {
     try {
-        console.log("Received event:", JSON.stringify(event, null, 2)); // Debugging
+        console.log("🟡 Received event:", JSON.stringify(event, null, 2)); // Debugging
 
-        // Ensure event.body exists and is valid JSON
         const body = event.body ? JSON.parse(event.body) : {};
 
         if (!body.productId || !body.name || !body.price || !body.stock || !body.imageUrl) {
@@ -24,13 +23,13 @@ export const handler = async (event) => {
         }
 
         const params = {
-            TableName: "Products",
+            TableName: "<YOUR_TABLE_NAME>", // 🔁 Replace with your DynamoDB table name
             Item: {
                 productId: body.productId,
                 name: body.name,
                 price: body.price,
                 stock: body.stock,
-                imageUrl: body.imageUrl // ✅ Added imageUrl field
+                imageUrl: body.imageUrl // 🖼️ Can be a full S3 URL like https://<YOUR_BUCKET_NAME>.s3.amazonaws.com/...
             },
         };
 
@@ -46,7 +45,7 @@ export const handler = async (event) => {
             body: JSON.stringify({ message: "Product added successfully!" })
         };
     } catch (error) {
-        console.error("Error:", error);
+        console.error("🔴 Error:", error);
         return {
             statusCode: 500,
             headers: {
